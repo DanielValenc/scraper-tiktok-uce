@@ -12,17 +12,23 @@ def scrape_tiktok_profile(username):
     }
     
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        context = browser.new_context(
-            storage_state="state.json",
+        context = p.chromium.launch_persistent_context(
+            user_data_dir="perfil_tiktok",
+            headless=False,
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        page = context.new_page()
-        page.goto(f"https://www.tiktok.com/@{username}")
+        
+        page = context.pages[0]
         
         try:
+            # wait_until="domcontentloaded" evita que Playwright espere eternamente si algún anuncio de TikTok no carga
+            page.goto(f"https://www.tiktok.com/@{username}", wait_until="domcontentloaded", timeout=60000)
+            
+            print("Verificando conexión...")
+            time.sleep(4) 
+            
             print("Extrayendo estadísticas principales...")
-            page.wait_for_selector('strong[title="Seguidores"]', timeout=15000)
+            page.wait_for_selector('strong[title="Seguidores"]', timeout=60000)
             
             siguiendo = page.locator('strong[title="Siguiendo"]').text_content()
             seguidores = page.locator('strong[title="Seguidores"]').text_content()
@@ -35,20 +41,17 @@ def scrape_tiktok_profile(username):
             }
             
             print("Haciendo scroll simulado para cargar las publicaciones...")
-            # Simulamos giros en la rueda del ratón en lugar de saltos bruscos de JavaScript
             for _ in range(4):
                 page.mouse.wheel(0, 800)
                 time.sleep(1.5)
             
             print("Capturando los enlaces de los videos...")
-            # Buscamos cualquier enlace en la web que contenga "/video/"
-            page.wait_for_selector('a[href*="/video/"]', timeout=15000)
+            page.wait_for_selector('a[href*="/video/"]', timeout=60000)
             videos_links = page.locator('a[href*="/video/"]')
             
             enlaces_unicos = set()
             cantidad = videos_links.count()
             
-            # Limpiamos duplicados (TikTok pone 2 enlaces por cada video en el DOM) y completamos la URL
             for i in range(cantidad):
                 href = videos_links.nth(i).get_attribute('href')
                 if href and "/video/" in href:
@@ -56,7 +59,6 @@ def scrape_tiktok_profile(username):
                         href = "https://www.tiktok.com" + href
                     enlaces_unicos.add(href)
             
-            # Seleccionamos hasta un máximo de 10 videos
             lista_final = list(enlaces_unicos)[:10]
             
             for i, enlace in enumerate(lista_final):
@@ -73,9 +75,11 @@ def scrape_tiktok_profile(username):
             print(f"\n¡ÉXITO! Se extrajeron {len(lista_final)} videos. Revisa el archivo: {nombre_archivo}")
             
         except Exception as e:
-            print(f"\nError durante la extracción. Detalle técnico: {e}")
-        
-        browser.close()
+            print(f"\nError: TikTok bloqueó la conexión o saltó un Captcha. Borra la carpeta 'perfil_tiktok', espera unos minutos y reintenta.")
+            print(f"Detalle técnico: {e}")
+            
+        finally:
+            context.close()
 
 if __name__ == "__main__":
     target_user = input("Ingresa el username de TikTok (sin el @): ")
