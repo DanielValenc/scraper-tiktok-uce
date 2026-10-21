@@ -21,20 +21,25 @@ def scrape_tiktok_profile(username):
         page = context.pages[0]
         
         try:
-            # wait_until="domcontentloaded" evita que Playwright espere eternamente si algún anuncio de TikTok no carga
             page.goto(f"https://www.tiktok.com/@{username}", wait_until="domcontentloaded", timeout=60000)
             
             print("Verificando conexión...")
             time.sleep(4) 
             
-            print("Extrayendo estadísticas principales...")
+            print("Extrayendo estadísticas principales y foto de perfil...")
             page.wait_for_selector('strong[title="Seguidores"]', timeout=60000)
             
             siguiendo = page.locator('strong[title="Siguiendo"]').text_content()
             seguidores = page.locator('strong[title="Seguidores"]').text_content()
             likes = page.locator('strong[title="Me gusta"]').text_content()
             
+            try:
+                foto_perfil = page.locator('img[class*="Avatar"]').first.get_attribute('src', timeout=5000)
+            except:
+                foto_perfil = "https://via.placeholder.com/150?text=Sin+Foto"
+            
             datos_descarga["perfil"] = {
+                "foto_perfil": foto_perfil,
                 "siguiendo": siguiendo,
                 "seguidores": seguidores,
                 "me_gusta": likes
@@ -45,26 +50,39 @@ def scrape_tiktok_profile(username):
                 page.mouse.wheel(0, 800)
                 time.sleep(1.5)
             
-            print("Capturando los enlaces de los videos...")
+            print("Capturando los enlaces y miniaturas de los videos...")
             page.wait_for_selector('a[href*="/video/"]', timeout=60000)
             videos_links = page.locator('a[href*="/video/"]')
             
-            enlaces_unicos = set()
+            # Usamos un diccionario para guardar el enlace (key) y su miniatura (value) sin duplicados
+            videos_extraidos = {}
             cantidad = videos_links.count()
             
             for i in range(cantidad):
-                href = videos_links.nth(i).get_attribute('href')
+                elemento = videos_links.nth(i)
+                href = elemento.get_attribute('href')
+                
                 if href and "/video/" in href:
                     if href.startswith("/"):
                         href = "https://www.tiktok.com" + href
-                    enlaces_unicos.add(href)
+                    
+                    if href not in videos_extraidos:
+                        try:
+                            # Buscamos la imagen dentro del contenedor del video
+                            miniatura = elemento.locator('img').first.get_attribute('src', timeout=2000)
+                        except:
+                            miniatura = "https://via.placeholder.com/300x400?text=Video"
+                            
+                        videos_extraidos[href] = miniatura
             
-            lista_final = list(enlaces_unicos)[:10]
+            # Tomamos solo los primeros 10
+            lista_final = list(videos_extraidos.items())[:10]
             
-            for i, enlace in enumerate(lista_final):
+            for i, (enlace, miniatura) in enumerate(lista_final):
                 datos_descarga["videos_recientes"].append({
                     "posicion": i + 1,
                     "enlace": enlace,
+                    "miniatura": miniatura,
                     "estado": "Extraído exitosamente"
                 })
                 
@@ -72,7 +90,7 @@ def scrape_tiktok_profile(username):
             with open(nombre_archivo, "w", encoding="utf-8") as f:
                 json.dump(datos_descarga, f, ensure_ascii=False, indent=4)
                 
-            print(f"\n¡ÉXITO! Se extrajeron {len(lista_final)} videos. Revisa el archivo: {nombre_archivo}")
+            print(f"\n¡ÉXITO! Se extrajeron {len(lista_final)} videos con sus miniaturas. Revisa el archivo: {nombre_archivo}")
             
         except Exception as e:
             print(f"\nError: TikTok bloqueó la conexión o saltó un Captcha. Borra la carpeta 'perfil_tiktok', espera unos minutos y reintenta.")

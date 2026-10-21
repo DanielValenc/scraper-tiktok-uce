@@ -6,57 +6,45 @@
     <title>Dashboard TikTok Scraper</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 font-sans p-8">
+<body class="bg-gray-50 font-sans p-8">
 
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
-        <div class="flex items-center justify-between border-b pb-4 mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">TikTok Data Extractor</h1>
-            <span id="username-badge" class="bg-black text-white px-4 py-1 rounded-full font-semibold">@usuario</span>
+    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div class="flex items-center gap-6 border-b pb-4 mb-6">
+            <img id="profile-img" src="" alt="Foto de perfil" class="w-20 h-20 rounded-full object-cover shadow-md hidden">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">TikTok Data Extractor</h1>
+                <span id="username-badge" class="bg-black text-white px-4 py-1 rounded-full font-semibold">@usuario</span>
+            </div>
         </div>
 
-        <!-- NUEVO: Buscador de archivos -->
         <div class="flex gap-4 mb-8">
             <input type="text" id="user-search" placeholder="Ingresa el usuario (ej. danielvalencia365)" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
-            <button onclick="cargarJSON()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">
+            <button onclick="cargarJSON()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">
                 Cargar Datos
             </button>
         </div>
 
-        <!-- Tarjetas de Estadísticas -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="stats-container">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10" id="stats-container">
             <p class="text-gray-500 col-span-3 text-center">Ingresa un usuario y presiona "Cargar Datos".</p>
         </div>
 
-        <!-- Lista de Videos -->
         <div>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Últimas 10 Publicaciones</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-50 text-gray-600 border-b">
-                            <th class="p-3 font-semibold">Posición</th>
-                            <th class="p-3 font-semibold">Enlace del Video</th>
-                            <th class="p-3 font-semibold">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="videos-table" class="divide-y text-gray-700">
-                        <!-- Se llenan con JS -->
-                    </tbody>
-                </table>
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Videos Extraídos (10)</h2>
+            <!-- NUEVO: Contenedor tipo Grid para las tarjetas -->
+            <div id="videos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Se llenan con JS -->
             </div>
         </div>
     </div>
 
     <script>
         function cargarJSON() {
-            // Obtenemos lo que escribiste en el buscador
             let user = document.getElementById('user-search').value.trim();
             if (!user) {
                 alert("Por favor ingresa un nombre de usuario.");
                 return;
             }
 
-            // Construimos el nombre del archivo igual que tu script de Python
             const JSON_FILE = `datos_${user}.json`;
 
             fetch(JSON_FILE)
@@ -67,46 +55,63 @@
                 .then(data => {
                     document.getElementById('username-badge').textContent = `@${data.usuario}`;
 
+                    const profileImg = document.getElementById('profile-img');
+                    if (data.perfil.foto_perfil) {
+                        profileImg.src = data.perfil.foto_perfil;
+                        profileImg.classList.remove('hidden');
+                    } else {
+                        profileImg.classList.add('hidden');
+                    }
+
                     const statsHtml = `
-                        <div class="bg-blue-50 p-6 rounded-lg border border-blue-100 text-center">
+                        <div class="bg-blue-50 p-6 rounded-xl border border-blue-100 text-center shadow-sm hover:shadow-md transition">
                             <p class="text-blue-500 text-sm font-bold uppercase tracking-wide">Siguiendo</p>
-                            <p class="text-3xl font-black text-gray-800 mt-2">${data.perfil.siguiendo}</p>
+                            <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.siguiendo}</p>
                         </div>
-                        <div class="bg-purple-50 p-6 rounded-lg border border-purple-100 text-center">
+                        <div class="bg-purple-50 p-6 rounded-xl border border-purple-100 text-center shadow-sm hover:shadow-md transition">
                             <p class="text-purple-500 text-sm font-bold uppercase tracking-wide">Seguidores</p>
-                            <p class="text-3xl font-black text-gray-800 mt-2">${data.perfil.seguidores}</p>
+                            <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.seguidores}</p>
                         </div>
-                        <div class="bg-pink-50 p-6 rounded-lg border border-pink-100 text-center">
+                        <div class="bg-pink-50 p-6 rounded-xl border border-pink-100 text-center shadow-sm hover:shadow-md transition">
                             <p class="text-pink-500 text-sm font-bold uppercase tracking-wide">Me Gusta</p>
-                            <p class="text-3xl font-black text-gray-800 mt-2">${data.perfil.me_gusta}</p>
+                            <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.me_gusta}</p>
                         </div>
                     `;
                     document.getElementById('stats-container').innerHTML = statsHtml;
 
-                    let tableHtml = '';
+                    // NUEVO: Generación de Tarjetas con Miniaturas
+                    let gridHtml = '';
                     data.videos_recientes.forEach(video => {
-                        tableHtml += `
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="p-3 font-bold text-gray-500">#${video.posicion}</td>
-                                <td class="p-3">
-                                    <a href="${video.enlace}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline break-all">
+                        // Cambiamos el cuadro gris por la etiqueta img que carga la miniatura
+                        gridHtml += `
+                            <div class="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col">
+                                <div class="h-64 overflow-hidden relative bg-black">
+                                    <img src="${video.miniatura}" alt="Miniatura del video" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition">
+                                    <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition duration-300">
+                                        <svg class="w-16 h-16 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                    </div>
+                                </div>
+                                <div class="p-4 flex flex-col flex-grow border-t">
+                                    <span class="text-xs font-bold text-gray-400 mb-1">Publicación #${video.posicion}</span>
+                                    <a href="${video.enlace}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 font-medium break-all mb-4 line-clamp-2">
                                         ${video.enlace}
                                     </a>
-                                </td>
-                                <td class="p-3">
-                                    <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
-                                        ${video.estado}
-                                    </span>
-                                </td>
-                            </tr>
+                                    <div class="mt-auto">
+                                        <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
+                                            ✓ ${video.estado}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         `;
                     });
-                    document.getElementById('videos-table').innerHTML = tableHtml;
+                    document.getElementById('videos-grid').innerHTML = gridHtml;
                 })
                 .catch(error => {
                     console.error("Error cargando los datos:", error);
-                    document.getElementById('stats-container').innerHTML = `<p class="text-red-500 col-span-3 text-center">Error: No se encontró el archivo <b>${JSON_FILE}</b>. ¿Estás seguro de que ya extrajiste los datos de ese usuario?</p>`;
-                    document.getElementById('videos-table').innerHTML = '';
+                    document.getElementById('stats-container').innerHTML = `<p class="text-red-500 col-span-3 text-center">Error: No se encontró el archivo <b>${JSON_FILE}</b>.</p>`;
+                    document.getElementById('videos-grid').innerHTML = '';
+                    document.getElementById('profile-img').classList.add('hidden');
                 });
         }
     </script>
