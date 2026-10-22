@@ -322,6 +322,6 @@ También conocido como **OCEAN**, describe la personalidad en cinco dimensiones:
 **[Daniel Valencia Torres]** – Universidad Central del Ecuador (UCE)
 📧 [devalenciat@uce.edu.ec]
 
-## 📄 Licencia
+## 📄 Repositorio
+ Url:https://github.com/DanielValenc/scraper-tiktok-uce.git
 
-Proyecto con fines académicos. Agrega aquí la licencia que prefieras (por ejemplo, MIT).
