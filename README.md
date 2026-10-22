@@ -273,9 +273,9 @@ Muestra foto y usuario, tarjetas de estadísticas, **barras de progreso** de cad
 ---
 ![Dashboard del proyecto](img/ejemplodv.png)
 
-<p align="center">
-  <img src="img/ejemplodv.png" alt="Dashboard del proyecto" width="700">
-</p>
+---
+
+![Dashboard del proyecto](img/ejemplodv2.png)
 
 
 ## 🧠 ¿Qué es el modelo Big Five?
