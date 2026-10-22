@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard TikTok Scraper</title>
+    <title>Dashboard TikTok Scraper - UCE</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 font-sans p-8">
-
     <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        
         <div class="flex items-center gap-6 border-b pb-4 mb-6">
             <img id="profile-img" src="" alt="Foto de perfil" class="w-20 h-20 rounded-full object-cover shadow-md hidden">
             <div>
@@ -18,22 +18,24 @@
         </div>
 
         <div class="flex gap-4 mb-8">
-            <input type="text" id="user-search" placeholder="Ingresa el usuario (ej. danielvalencia365)" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
+            <input type="text" id="user-search" placeholder="Ingresa el usuario" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500">
             <button onclick="cargarJSON()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">
                 Cargar Datos
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10" id="stats-container">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="stats-container">
             <p class="text-gray-500 col-span-3 text-center">Ingresa un usuario y presiona "Cargar Datos".</p>
+        </div>
+
+        <div id="bigfive-container" class="mb-10 bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Análisis Psicológico (Big Five)</h3>
+            <div id="bigfive-bars" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
         </div>
 
         <div>
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Videos Extraídos (10)</h2>
-            <!-- NUEVO: Contenedor tipo Grid para las tarjetas -->
-            <div id="videos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <!-- Se llenan con JS -->
-            </div>
+            <div id="videos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
         </div>
     </div>
 
@@ -64,37 +66,75 @@
                     }
 
                     const statsHtml = `
-                        <div class="bg-blue-50 p-6 rounded-xl border border-blue-100 text-center shadow-sm hover:shadow-md transition">
+                        <div class="bg-blue-50 p-6 rounded-xl border border-blue-100 text-center shadow-sm">
                             <p class="text-blue-500 text-sm font-bold uppercase tracking-wide">Siguiendo</p>
                             <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.siguiendo}</p>
                         </div>
-                        <div class="bg-purple-50 p-6 rounded-xl border border-purple-100 text-center shadow-sm hover:shadow-md transition">
+                        <div class="bg-purple-50 p-6 rounded-xl border border-purple-100 text-center shadow-sm">
                             <p class="text-purple-500 text-sm font-bold uppercase tracking-wide">Seguidores</p>
                             <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.seguidores}</p>
                         </div>
-                        <div class="bg-pink-50 p-6 rounded-xl border border-pink-100 text-center shadow-sm hover:shadow-md transition">
+                        <div class="bg-pink-50 p-6 rounded-xl border border-pink-100 text-center shadow-sm">
                             <p class="text-pink-500 text-sm font-bold uppercase tracking-wide">Me Gusta</p>
                             <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.me_gusta}</p>
                         </div>
                     `;
                     document.getElementById('stats-container').innerHTML = statsHtml;
 
-                    // NUEVO: Generación de Tarjetas con Miniaturas
+                    if (data.analisis_bigfive) {
+                        document.getElementById('bigfive-container').classList.remove('hidden');
+                        let barsHtml = '';
+                        
+                        // Iteramos sobre las claves para dibujar las barras
+                        for (const [rasgo, valor] of Object.entries(data.analisis_bigfive)) {
+                            // Omitimos la clave "resumen" de las barras numéricas
+                            if (rasgo !== "resumen") {
+                                barsHtml += `
+                                    <div>
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-sm font-bold text-gray-700 capitalize">${rasgo}</span>
+                                            <span class="text-sm font-bold text-gray-700">${valor}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-3">
+                                            <div class="bg-blue-600 h-3 rounded-full" style="width: ${valor}%"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }
+                        
+                        // Si existe un resumen, lo agregamos como un cuadro de texto al final del panel
+                        if (data.analisis_bigfive.resumen) {
+                            barsHtml += `
+                                <div class="col-span-1 md:col-span-2 mt-4 p-5 bg-indigo-50 border border-indigo-100 rounded-lg">
+                                    <h4 class="text-indigo-800 font-bold mb-2">Perfil de Personalidad:</h4>
+                                    <p class="text-sm text-indigo-900 leading-relaxed">${data.analisis_bigfive.resumen}</p>
+                                </div>
+                            `;
+                        }
+                        
+                        document.getElementById('bigfive-bars').innerHTML = barsHtml;
+                    } else {
+                        document.getElementById('bigfive-container').classList.add('hidden');
+                    }
+
                     let gridHtml = '';
                     data.videos_recientes.forEach(video => {
-                        // Cambiamos el cuadro gris por la etiqueta img que carga la miniatura
                         gridHtml += `
                             <div class="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col">
                                 <div class="h-64 overflow-hidden relative bg-black">
-                                    <img src="${video.miniatura}" alt="Miniatura del video" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition">
+                                    <img src="${video.miniatura}" alt="Miniatura" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition">
                                     <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition duration-300">
                                         <svg class="w-16 h-16 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                     </div>
                                 </div>
                                 <div class="p-4 flex flex-col flex-grow border-t">
-                                    <span class="text-xs font-bold text-gray-400 mb-1">Publicación #${video.posicion}</span>
-                                    <a href="${video.enlace}" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 font-medium break-all mb-4 line-clamp-2">
-                                        ${video.enlace}
+                                    <span class="text-xs font-bold text-gray-400 mb-2">Publicación #${video.posicion}</span>
+                                    <p class="text-sm text-gray-700 mb-3 line-clamp-3" title="${video.descripcion}">
+                                        ${video.descripcion}
+                                    </p>
+                                    <a href="${video.enlace}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 font-medium break-all mb-4">
+                                        Ver video original ↗
                                     </a>
                                     <div class="mt-auto">
                                         <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
@@ -108,10 +148,10 @@
                     document.getElementById('videos-grid').innerHTML = gridHtml;
                 })
                 .catch(error => {
-                    console.error("Error cargando los datos:", error);
-                    document.getElementById('stats-container').innerHTML = `<p class="text-red-500 col-span-3 text-center">Error: No se encontró el archivo <b>${JSON_FILE}</b>.</p>`;
+                    console.error("Error:", error);
+                    document.getElementById('stats-container').innerHTML = `<p class="text-red-500 col-span-3 text-center">Error: No se encontró el archivo. Asegúrate de procesarlo primero.</p>`;
                     document.getElementById('videos-grid').innerHTML = '';
-                    document.getElementById('profile-img').classList.add('hidden');
+                    document.getElementById('bigfive-container').classList.add('hidden');
                 });
         }
     </script>
