@@ -8,7 +8,7 @@
 </head>
 <body class="bg-gray-50 font-sans p-8">
     <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-8">
-        
+
         <div class="flex items-center gap-6 border-b pb-4 mb-6">
             <img id="profile-img" src="" alt="Foto de perfil" class="w-20 h-20 rounded-full object-cover shadow-md hidden">
             <div>
@@ -28,11 +28,34 @@
             <p class="text-gray-500 col-span-3 text-center">Ingresa un usuario y presiona "Cargar Datos".</p>
         </div>
 
+        <!-- Big Five -->
         <div id="bigfive-container" class="mb-10 bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Análisis Psicológico (Big Five)</h3>
+            <h3 class="text-xl font-bold text-gray-800 mb-1">Análisis Psicológico (Big Five)</h3>
+            <p class="text-xs text-gray-500 mb-4">Distribución relativa: los cinco rasgos suman 100%.</p>
             <div id="bigfive-bars" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
         </div>
 
+        <!-- Afinidad con marcas -->
+        <div id="comercial-container" class="mb-10 bg-white p-6 rounded-xl shadow-sm border border-gray-200 hidden">
+            <h3 class="text-xl font-bold text-gray-800 mb-1">Afinidad con Marcas</h3>
+            <p class="text-xs text-gray-500 mb-4">Tipos de productos o servicios que podrían estar alineados con este creador.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="p-4 bg-amber-50 border border-amber-100 rounded-lg">
+                    <h4 class="text-amber-800 font-bold text-sm uppercase tracking-wide mb-2">Tono de comunicación</h4>
+                    <p id="tono-texto" class="text-sm text-amber-900"></p>
+                </div>
+                <div class="p-4 bg-teal-50 border border-teal-100 rounded-lg">
+                    <h4 class="text-teal-800 font-bold text-sm uppercase tracking-wide mb-2">Intereses principales</h4>
+                    <div id="intereses-chips" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+
+            <h4 class="text-gray-700 font-bold text-sm uppercase tracking-wide mb-3">Categorías más afines</h4>
+            <div id="afinidad-lista" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Videos -->
         <div>
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Videos Extraídos (10)</h2>
             <div id="videos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
@@ -40,8 +63,87 @@
     </div>
 
     <script>
+        // Evita que el texto del JSON se interprete como HTML
+        function esc(valor) {
+            return String(valor ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Permite cargar con la tecla Enter
+        document.getElementById('user-search').addEventListener('keydown', e => {
+            if (e.key === 'Enter') cargarJSON();
+        });
+
+        function mostrarBigFive(analisis) {
+            const contenedor = document.getElementById('bigfive-container');
+            if (!analisis) {
+                contenedor.classList.add('hidden');
+                return;
+            }
+            contenedor.classList.remove('hidden');
+
+            let barsHtml = '';
+            for (const [rasgo, valor] of Object.entries(analisis)) {
+                if (rasgo === 'resumen') continue; // el resumen no es una barra
+                barsHtml += `
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-sm font-bold text-gray-700 capitalize">${esc(rasgo)}</span>
+                            <span class="text-sm font-bold text-gray-700">${esc(valor)}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="bg-blue-600 h-3 rounded-full" style="width: ${Number(valor) || 0}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (analisis.resumen) {
+                barsHtml += `
+                    <div class="col-span-1 md:col-span-2 mt-4 p-5 bg-indigo-50 border border-indigo-100 rounded-lg">
+                        <h4 class="text-indigo-800 font-bold mb-2">Perfil de Personalidad:</h4>
+                        <p class="text-sm text-indigo-900 leading-relaxed">${esc(analisis.resumen)}</p>
+                    </div>
+                `;
+            }
+            document.getElementById('bigfive-bars').innerHTML = barsHtml;
+        }
+
+        function mostrarAfinidad(comercial) {
+            const contenedor = document.getElementById('comercial-container');
+            if (!comercial) {
+                contenedor.classList.add('hidden');
+                return;
+            }
+            contenedor.classList.remove('hidden');
+
+            document.getElementById('tono-texto').textContent =
+                comercial.tono_comunicacion || 'No disponible';
+
+            const intereses = comercial.intereses || [];
+            document.getElementById('intereses-chips').innerHTML = intereses.length
+                ? intereses.map(i =>
+                    `<span class="bg-white text-teal-800 border border-teal-200 px-3 py-1 rounded-full text-xs font-semibold">${esc(i)}</span>`
+                  ).join('')
+                : '<span class="text-sm text-teal-900">No disponible</span>';
+
+            const afines = comercial.afinidad_marcas || [];
+            document.getElementById('afinidad-lista').innerHTML = afines.length
+                ? afines.map((a, idx) => `
+                    <div class="p-4 rounded-lg border border-gray-200 bg-gray-50 flex flex-col">
+                        <span class="text-xs font-bold text-gray-400 mb-1">#${idx + 1} en afinidad</span>
+                        <h5 class="text-base font-bold text-gray-800 mb-2">${esc(a.categoria)}</h5>
+                        <p class="text-sm text-gray-600 leading-relaxed">${esc(a.motivo)}</p>
+                    </div>
+                  `).join('')
+                : '<p class="text-sm text-gray-500 col-span-3">No hay categorías afines disponibles.</p>';
+        }
+
         function cargarJSON() {
-            let user = document.getElementById('user-search').value.trim();
+            const user = document.getElementById('user-search').value.trim().replace(/^@/, '');
             if (!user) {
                 alert("Por favor ingresa un nombre de usuario.");
                 return;
@@ -49,96 +151,63 @@
 
             const JSON_FILE = `datos_${user}.json`;
 
-            fetch(JSON_FILE)
+            fetch(JSON_FILE, { cache: 'no-store' })  // evita datos viejos en caché
                 .then(response => {
                     if (!response.ok) throw new Error('No se encontró el archivo JSON');
                     return response.json();
                 })
                 .then(data => {
+                    const perfil = data.perfil || {};
+
                     document.getElementById('username-badge').textContent = `@${data.usuario}`;
 
                     const profileImg = document.getElementById('profile-img');
-                    if (data.perfil.foto_perfil) {
-                        profileImg.src = data.perfil.foto_perfil;
+                    if (perfil.foto_perfil) {
+                        profileImg.src = perfil.foto_perfil;
                         profileImg.classList.remove('hidden');
                     } else {
                         profileImg.classList.add('hidden');
                     }
 
-                    const statsHtml = `
+                    document.getElementById('stats-container').innerHTML = `
                         <div class="bg-blue-50 p-6 rounded-xl border border-blue-100 text-center shadow-sm">
                             <p class="text-blue-500 text-sm font-bold uppercase tracking-wide">Siguiendo</p>
-                            <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.siguiendo}</p>
+                            <p class="text-4xl font-black text-gray-800 mt-2">${esc(perfil.siguiendo)}</p>
                         </div>
                         <div class="bg-purple-50 p-6 rounded-xl border border-purple-100 text-center shadow-sm">
                             <p class="text-purple-500 text-sm font-bold uppercase tracking-wide">Seguidores</p>
-                            <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.seguidores}</p>
+                            <p class="text-4xl font-black text-gray-800 mt-2">${esc(perfil.seguidores)}</p>
                         </div>
                         <div class="bg-pink-50 p-6 rounded-xl border border-pink-100 text-center shadow-sm">
                             <p class="text-pink-500 text-sm font-bold uppercase tracking-wide">Me Gusta</p>
-                            <p class="text-4xl font-black text-gray-800 mt-2">${data.perfil.me_gusta}</p>
+                            <p class="text-4xl font-black text-gray-800 mt-2">${esc(perfil.me_gusta)}</p>
                         </div>
                     `;
-                    document.getElementById('stats-container').innerHTML = statsHtml;
 
-                    if (data.analisis_bigfive) {
-                        document.getElementById('bigfive-container').classList.remove('hidden');
-                        let barsHtml = '';
-                        
-                        // Iteramos sobre las claves para dibujar las barras
-                        for (const [rasgo, valor] of Object.entries(data.analisis_bigfive)) {
-                            // Omitimos la clave "resumen" de las barras numéricas
-                            if (rasgo !== "resumen") {
-                                barsHtml += `
-                                    <div>
-                                        <div class="flex justify-between mb-1">
-                                            <span class="text-sm font-bold text-gray-700 capitalize">${rasgo}</span>
-                                            <span class="text-sm font-bold text-gray-700">${valor}%</span>
-                                        </div>
-                                        <div class="w-full bg-gray-200 rounded-full h-3">
-                                            <div class="bg-blue-600 h-3 rounded-full" style="width: ${valor}%"></div>
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                        }
-                        
-                        // Si existe un resumen, lo agregamos como un cuadro de texto al final del panel
-                        if (data.analisis_bigfive.resumen) {
-                            barsHtml += `
-                                <div class="col-span-1 md:col-span-2 mt-4 p-5 bg-indigo-50 border border-indigo-100 rounded-lg">
-                                    <h4 class="text-indigo-800 font-bold mb-2">Perfil de Personalidad:</h4>
-                                    <p class="text-sm text-indigo-900 leading-relaxed">${data.analisis_bigfive.resumen}</p>
-                                </div>
-                            `;
-                        }
-                        
-                        document.getElementById('bigfive-bars').innerHTML = barsHtml;
-                    } else {
-                        document.getElementById('bigfive-container').classList.add('hidden');
-                    }
+                    mostrarBigFive(data.analisis_bigfive);
+                    mostrarAfinidad(data.perfil_comercial);
 
                     let gridHtml = '';
-                    data.videos_recientes.forEach(video => {
+                    (data.videos_recientes || []).forEach(video => {
                         gridHtml += `
                             <div class="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col">
                                 <div class="h-64 overflow-hidden relative bg-black">
-                                    <img src="${video.miniatura}" alt="Miniatura" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition">
+                                    <img src="${esc(video.miniatura)}" alt="Miniatura" class="w-full h-full object-cover opacity-90 hover:opacity-100 transition">
                                     <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition duration-300">
                                         <svg class="w-16 h-16 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                                     </div>
                                 </div>
                                 <div class="p-4 flex flex-col flex-grow border-t">
-                                    <span class="text-xs font-bold text-gray-400 mb-2">Publicación #${video.posicion}</span>
-                                    <p class="text-sm text-gray-700 mb-3 line-clamp-3" title="${video.descripcion}">
-                                        ${video.descripcion}
+                                    <span class="text-xs font-bold text-gray-400 mb-2">Publicación #${esc(video.posicion)}</span>
+                                    <p class="text-sm text-gray-700 mb-3 line-clamp-3" title="${esc(video.descripcion)}">
+                                        ${esc(video.descripcion)}
                                     </p>
-                                    <a href="${video.enlace}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 font-medium break-all mb-4">
+                                    <a href="${esc(video.enlace)}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:text-blue-800 font-medium break-all mb-4">
                                         Ver video original ↗
                                     </a>
                                     <div class="mt-auto">
                                         <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
-                                            ✓ ${video.estado}
+                                            ✓ ${esc(video.estado)}
                                         </span>
                                     </div>
                                 </div>
@@ -152,6 +221,7 @@
                     document.getElementById('stats-container').innerHTML = `<p class="text-red-500 col-span-3 text-center">Error: No se encontró el archivo. Asegúrate de procesarlo primero.</p>`;
                     document.getElementById('videos-grid').innerHTML = '';
                     document.getElementById('bigfive-container').classList.add('hidden');
+                    document.getElementById('comercial-container').classList.add('hidden');
                 });
         }
     </script>

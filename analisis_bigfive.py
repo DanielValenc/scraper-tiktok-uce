@@ -33,6 +33,12 @@ MODELO_POR_DEFECTO = "qwen/qwen3.8-27b"  # el que funciona en tu cuenta
 RASGOS = ["Apertura", "Responsabilidad", "Extraversion", "Amabilidad", "Neuroticismo"]
 SIN_DESCRIPCION = "Sin descripción disponible"
 MAX_CARACTERES = 6000  # límite de texto enviado a la IA
+CATEGORIAS_MARCA = [
+    "Moda y accesorios", "Belleza y cuidado personal", "Tecnología y gadgets",
+    "Deportes y fitness", "Alimentos y bebidas", "Viajes y turismo",
+    "Educación y cursos", "Entretenimiento y gaming", "Hogar y decoración",
+    "Finanzas y emprendimiento", "Salud y bienestar", "Mascotas", "Automotriz",
+]
 
 
 def obtener_api_key():
@@ -81,11 +87,44 @@ def extraer_json(texto):
     return json.loads(texto[inicio:fin + 1])
 
 
+def normalizar_a_100(puntajes):
+    """Reparte los puntajes para que sumen exactamente 100 (método del mayor resto)."""
+    total = sum(puntajes.values())
+    if total == 0:
+        return {k: 100 // len(puntajes) for k in puntajes}
+    exactos = {k: v * 100 / total for k, v in puntajes.items()}
+    enteros = {k: int(v) for k, v in exactos.items()}
+    faltan = 100 - sum(enteros.values())
+    # Los puntos que sobran van a los rasgos con mayor parte decimal
+    for k in sorted(exactos, key=lambda k: exactos[k] - enteros[k], reverse=True)[:faltan]:
+        enteros[k] += 1
+    return enteros
+
+
 def validar_resultado(resultado):
-    """Verifica que estén los 5 rasgos y deja los valores como enteros entre 0 y 100."""
-    limpio = {r: max(0, min(100, int(round(float(resultado[r]))))) for r in RASGOS}
-    limpio["resumen"] = str(resultado.get("resumen", "")).strip()
-    return limpio
+    """Valida la respuesta de la IA. Devuelve (bigfive, perfil_comercial)."""
+    brutos = {r: max(0.0, min(100.0, float(resultado[r]))) for r in RASGOS}
+    bigfive = normalizar_a_100(brutos)  # suman exactamente 100
+    bigfive["resumen"] = str(resultado.get("resumen", "")).strip()
+
+    afines = []
+    for item in resultado.get("afinidad_marcas", []):
+        if isinstance(item, dict) and item.get("categoria") in CATEGORIAS_MARCA:
+            afines.append({
+                "categoria": item["categoria"],
+                "motivo": str(item.get("motivo", "")).strip(),
+            })
+
+    intereses = resultado.get("intereses", [])
+    if not isinstance(intereses, list):
+        intereses = []
+
+    comercial = {
+        "tono_comunicacion": str(resultado.get("tono_comunicacion", "")).strip(),
+        "intereses": [str(i).strip() for i in intereses if str(i).strip()][:5],
+        "afinidad_marcas": afines[:3],
+    }
+    return bigfive, comercial
 
 
 def analizar_perfil(archivo_json, api_key=None, modelo=None):
@@ -117,15 +156,24 @@ def analizar_perfil(archivo_json, api_key=None, modelo=None):
     textos = " ".join(descripciones)[:MAX_CARACTERES]
 
     prompt = f"""
-    Actúa como un psicólogo computacional. Analiza el siguiente texto extraído de TikTok basándote en el modelo Big Five (O.C.E.A.N.).
-    Devuelve ÚNICAMENTE un objeto JSON válido con exactamente 6 claves:
+    Actúa como un analista de marketing con conocimientos de psicología computacional.
+    Analiza el siguiente texto extraído de los últimos videos de una cuenta de TikTok (descripciones y hashtags).
+    Tu objetivo es estimar su personalidad con el modelo Big Five (O.C.E.A.N.) y determinar con qué tipo de
+    productos o servicios podría estar alineada, para ayudar a una marca a decidir si colabora con esta persona.
+
+    Devuelve ÚNICAMENTE un objeto JSON válido con exactamente 9 claves:
     1. "Apertura" (número entero 0-100)
     2. "Responsabilidad" (número entero 0-100)
     3. "Extraversion" (número entero 0-100)
     4. "Amabilidad" (número entero 0-100)
     5. "Neuroticismo" (número entero 0-100)
-    6. "resumen" (un párrafo de máximo 3 líneas describiendo el tipo de personalidad general de esta persona).
-    Cero texto adicional, solo el JSON estructurado.
+    6. "resumen" (un párrafo de máximo 3 líneas describiendo la personalidad general y el estilo de esta persona).
+    7. "tono_comunicacion" (máximo 8 palabras, por ejemplo: cercano, humorístico y espontáneo).
+    8. "intereses" (lista de 3 a 5 temas principales que aparecen en su contenido).
+    9. "afinidad_marcas" (lista de exactamente 3 objetos, ordenados de mayor a menor afinidad; cada objeto tiene
+       la clave "categoria" y la clave "motivo", una frase corta que explique la afinidad basándose en el texto).
+       El valor de "categoria" debe ser exactamente una de estas opciones: {", ".join(CATEGORIAS_MARCA)}.
+
 
     Texto a analizar: {textos}
     """
@@ -153,17 +201,18 @@ def analizar_perfil(archivo_json, api_key=None, modelo=None):
 
     try:
         contenido = response.json()["choices"][0]["message"]["content"]
-        resultado = validar_resultado(extraer_json(contenido))
+        bigfive, comercial = validar_resultado(extraer_json(contenido))
     except (KeyError, IndexError, TypeError, ValueError) as e:
         print(f"Error procesando la respuesta de la IA: {e}")
         return False
 
-    datos["analisis_bigfive"] = resultado
+    datos["analisis_bigfive"] = bigfive
+    datos["perfil_comercial"] = comercial
     with open(archivo_json, "w", encoding="utf-8") as f:
         json.dump(datos, f, ensure_ascii=False, indent=4)
 
     print("¡Análisis completado exitosamente!")
-    print(json.dumps(resultado, indent=4, ensure_ascii=False))
+    print(json.dumps({"analisis_bigfive": bigfive, "perfil_comercial": comercial}, indent=4, ensure_ascii=False))
     return True
 
 
